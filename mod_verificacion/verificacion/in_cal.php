@@ -1,0 +1,231 @@
+<?php
+header("Content-Type: text/html;charset=utf-8");
+include '../conexion/conexion.php';
+include '../funciones/centros.php';
+include '../funciones/piv.php';
+require ('../email/mail/class.phpmailer.php');
+
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+
+  foreach ($_POST as $campo => $valor) {
+    $variable = "$" . $campo. "='" . htmlentities($valor). "';";
+    eval($variable);
+  }
+
+  $string=$fecha1;
+  $A1=$string[0]; $A2=$string[1]; $A3=$string[2]; $A4=$string[3]; $A5=$string[4];
+  $A6=$string[5]; $A7=$string[6]; $A8=$string[7]; $A9=$string[8]; $A10=$string[9];
+  $mes = $A6.$A7;
+  $dia1 = $A9.$A10;
+
+  $string=$fecha2;
+  $B1=$string[0]; $B2=$string[1]; $B3=$string[2]; $B4=$string[3]; $B5=$string[4];
+  $B6=$string[5]; $B7=$string[6]; $B8=$string[7]; $B9=$string[8]; $B10=$string[9];
+
+  $mes2 = $B6.$B7;
+  $dia2 = $B9.$B10;
+
+  $centro = $id_centro;
+  $nom_centro = nombre_centro($centro);
+  //echo $nom_centro;
+
+  $sel = $con->query("SELECT * FROM verificaciones_pro WHERE id = '$id_ver' ");
+   $row = mysqli_num_rows($sel);
+   while ($f = $sel->fetch_assoc()) {
+     $num_ver = $f['numero_ver'];
+     $mes = $f['mes_ver'];
+     $mes_nom = mes($mes);
+     $area = $f['area_ver'];
+     $area_ver = area2($area);
+     $vgcf = $f['vgcf'];
+     $vgcf_nom = vgcf($vgcf);
+     $empresa = $f['empresa'];
+     $empresa_nom = empresa($empresa);
+     $tramo = $f['tramo'];
+     $kmi = $f['km_ini'];
+     $kmf = $f['km_fin'];
+     $linea = $f['linea'];
+     $linea_nom = linea($linea);
+     $verificador = $f['usuario'];
+     $nom_ver = verificador($verificador);
+     $dias_ver = $f['dias_ver'];
+
+   }
+
+  //restriccion de fecha
+  $fecha_mes = date("m");
+  $fecha_mes = $fecha_mes + 1;
+//  $fecha_mes = '0'.$fecha_mes;
+
+if (($mes < $fecha_mes) || ($mes > $fecha_mes)) {
+  header('location:../extend/alerta.php?msj=Selecciona Fecha del mes correspondiente&c=ver&p=ver&t=error');
+}
+elseif (($mes2 < $fecha_mes) || ($mes2 > $fecha_mes)) {
+  header('location:../extend/alerta.php?msj=Selecciona Fecha del mes correspondiente&c=ver&p=ver&t=error');
+}
+elseif ($dia2 < $dia1) {
+  header('location:../extend/alerta.php?msj=Fecha Incorrecta favor de revisar&c=ver&p=ver&t=error');
+}
+else {
+
+$id = '';
+$verificador = $_SESSION['id'];
+$estatus = 'T';
+
+$hora_cap = date("Y-m-d H:i:s");
+
+$dias = diferenciaDias($fecha1,$fecha2);
+if ($dias == '0') {
+ $dias='1';
+}
+else {
+ $dias=$dias+1;
+}
+//code...
+
+ /* INSERT VERIFICACIONES*/
+ $in_ver = $con->prepare("INSERT INTO detalle_cal VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)");
+ $in_ver->bind_param("iiisiisssiiss", $id, $id_ver, $id_centro, $sitio, $linea, $vgcf, $hora, $fecha1, $fecha2, $verificador, $verificador, $hora_cap, $estatus);
+
+ if ($in_ver->execute()) {
+   //ENVIAR CORREO ELECTRONICO
+   $mail = new PHPMailer;
+   // Configuramos el protocolo SMTP con autenticación
+   $mail->IsSMTP();
+   $mail->SMTPAuth = true;
+   $mail->CharSet = "UTF-8";
+   // Configuración del servidor SMTP
+   $mail->Port = 26;
+   $mail->Host = 'rcapulin.com';
+   $mail->Username = "info@rcapulin.com";
+   $mail->Password = "Runn3r_45%$";
+
+   // Configuración cabeceras del mensaje
+   $mail->From = "info@rcapulin.com";
+   $mail->FromName = "PROGRAMACIÓN DE VERIFICACIÓN";
+
+   //CONDICIONAL PARA ENVIO DE CORREOS
+   $cen = $f['id_centro'];
+   if (($cen == '2') || ($cen == '6') || ($cen == '7') || ($cen == '9') || ($cen == '18') || ($cen == '23') || ($cen == '25') || ($cen == '27') || ($cen == '31')) {
+     // code...
+     $mail->AddAddress("emartgab@sct.gob.mx","Eliut Martinez Gabriel");
+     $mail->AddAddress("abrianop@sct.gob.mx","Alfredo Briano Perez ");
+     $mail->AddBCC('jose.lopezy@sct.gob.mx',"Jose Luis Lopez Amaya");
+     $mail->AddBCC('miguelhr290986@gmail.com',"Desarrollo");
+   }
+   elseif (($cen == '1') || ($cen == '2') || ($cen == '8') || ($cen == '10') || ($cen == '11') || ($cen == '13') || ($cen == '14') || ($cen == '15') || ($cen == '17') || ($cen == '21') || ($cen == '24')) {
+     // code...
+     $mail->AddAddress("luis.aguilar@sct.gob.mx","Luis Antonio Aguilar Flores");
+     $mail->AddAddress("jalvarad@sct.gob.mx","Juan Carlos Alvarado Jimenez");
+     $mail->AddBCC('jose.lopezy@sct.gob.mx',"Jose Luis Lopez Amaya");
+     $mail->AddBCC('miguelhr290986@gmail.com',"Desarrollo");
+   }
+   else {
+     // code...
+     $mail->AddAddress("pvacio@sct.gob.mx","Pedro Vacio Cruz ");
+     $mail->AddBCC('jose.lopezy@sct.gob.mx',"Jose Luis Lopez Amaya");
+     $mail->AddBCC('miguelhr290986@gmail.com',"Desarrollo");
+
+   }
+
+    //$mail->AddBCC("ma.hernandez@rh-consulting.com.mx","RH");
+
+    //Cargamos la plantilla admin para el cuerpo del Email
+    $body = file_get_contents("../plantillas/cal_verificacion.html");
+    $mail->Subject = "Programación de Verificación";
+
+    $sustituir_A = "%A%";
+    $por_A = trim(utf8_decode($nom_centro));
+    $body = str_replace($sustituir_A, $por_A, $body);
+
+    $sustituir_B = "%B%";
+    $por_B = trim(utf8_decode($num_ver));
+    $body = str_replace($sustituir_B, $por_B, $body);
+
+    $sustituir_C = "%C%";
+    $por_C = trim(utf8_decode($mes_nom));
+    $body = str_replace($sustituir_C, $por_C, $body);
+
+    $sustituir_D = "%D%";
+    $por_D = trim(utf8_decode($area_ver));
+    $body = str_replace($sustituir_D, $por_D, $body);
+
+    $sustituir_E = "%E%";
+    $por_E = trim(utf8_decode($vgcf_nom));
+    $body = str_replace($sustituir_E, $por_E, $body);
+
+    $sustituir_F = "%F%";
+    $por_F = trim(utf8_decode($empresa_nom));
+    $body = str_replace($sustituir_F, $por_F, $body);
+
+    $sustituir_G = "%G%";
+    $por_G = trim(utf8_decode($tramo));
+    $body = str_replace($sustituir_G, $por_G, $body);
+
+    $sustituir_H = "%H%";
+    $por_H = trim(utf8_decode($linea_nom));
+    $body = str_replace($sustituir_H, $por_H, $body);
+
+    $sustituir_I = "%I%";
+    $por_I = trim(utf8_decode($kmi));
+    $body = str_replace($sustituir_I, $por_I, $body);
+
+    $sustituir_J = "%J%";
+    $por_J = trim(utf8_decode($kmf));
+    $body = str_replace($sustituir_J, $por_J, $body);
+
+    $sustituir_L = "%L%";
+    $por_L = trim(utf8_decode($sitio));
+    $body = str_replace($sustituir_L, $por_L, $body);
+
+    $sustituir_M = "%M%";
+    $por_M = trim(utf8_decode($fecha1));
+    $body = str_replace($sustituir_M, $por_M, $body);
+
+    $sustituir_MF = "%MF%";
+    $por_MF = trim(utf8_decode($fecha2));
+    $body = str_replace($sustituir_MF, $por_MF, $body);
+
+    $sustituir_N = "%N%";
+    $por_N = trim(utf8_decode($hora));
+    $body = str_replace($sustituir_N, $por_N, $body);
+
+    $sustituir_O = "%O%";
+    $por_O = trim(utf8_decode($nom_ver));
+    $body = str_replace($sustituir_O, $por_O, $body);
+
+    $sustituir_DI = "%DI%";
+    $por_DI = trim(utf8_decode($dias_ver));
+    $body = str_replace($sustituir_DI, $por_DI, $body);
+
+    // Aquí incluimos el cuerpo del mensaje ya modificado
+    $mail->MsgHTML($body);
+    $mail->isHTML(true);
+
+    //$mail->Send(); // Devolver el resultado
+
+    if(!$mail->Send())
+      {
+       echo "Message was not sent";
+       echo "Mailer Error: " . $mail->ErrorInfo;
+      }
+       else {
+      header('location:../extend/alerta.php?msj=Datos Registrados&c=ver&p=in&t=success');
+      }
+
+
+ }else {
+      header('location:../extend/alerta.php?msj=Datos no Registrados&c=ver&p=in&t=error');
+ }
+
+ $sel->close();
+ //$sel_ver->close();
+ $in_ver->close();
+ $con->close();
+}
+
+
+}
+else {
+header('location:../extend/alerta.php?msj=Utiiza el Formulario&c=ver&p=in&t=error');
+}
